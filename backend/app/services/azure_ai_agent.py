@@ -237,31 +237,32 @@ class AzureAIAgentService:
         try:
             # Process stream chunks
             for chunk in stream:
-                # Extract text from streaming response
-                if hasattr(chunk, 'output_text') and chunk.output_text:
-                    yield chunk.output_text
+                # Check event type
+                event_type = getattr(chunk, 'type', None)
+                
+                # Extract text from delta events
+                if event_type == 'response.output_text.delta':
+                    if hasattr(chunk, 'delta') and chunk.delta:
+                        yield chunk.delta
                 elif hasattr(chunk, 'delta') and chunk.delta:
+                    # Fallback for other delta formats
                     yield chunk.delta
-                elif hasattr(chunk, 'choices') and chunk.choices:
-                    # OpenAI-style streaming response
-                    for choice in chunk.choices:
-                        if hasattr(choice, 'delta') and hasattr(choice.delta, 'content') and choice.delta.content:
-                            yield choice.delta.content
                     
-                # Extract usage info if available
-                if hasattr(chunk, 'usage') and chunk.usage:
-                    usage = chunk.usage
-                    self._last_usage = UsageInfo(
-                        prompt_tokens=getattr(usage, "input_tokens", 0) or getattr(usage, "prompt_tokens", 0),
-                        completion_tokens=getattr(usage, "output_tokens", 0) or getattr(usage, "completion_tokens", 0),
-                        total_tokens=getattr(usage, "total_tokens", 0),
-                    )
-                    logger.info(
-                        "Usage info - Prompt: %d, Completion: %d, Total: %d",
-                        self._last_usage.prompt_tokens,
-                        self._last_usage.completion_tokens,
-                        self._last_usage.total_tokens,
-                    )
+                # Extract usage from completed event
+                if event_type == 'response.completed':
+                    if hasattr(chunk, 'response') and hasattr(chunk.response, 'usage'):
+                        usage = chunk.response.usage
+                        self._last_usage = UsageInfo(
+                            prompt_tokens=getattr(usage, "input_tokens", 0),
+                            completion_tokens=getattr(usage, "output_tokens", 0),
+                            total_tokens=getattr(usage, "total_tokens", 0),
+                        )
+                        logger.info(
+                            "Usage info - Input: %d, Output: %d, Total: %d",
+                            self._last_usage.prompt_tokens,
+                            self._last_usage.completion_tokens,
+                            self._last_usage.total_tokens,
+                        )
         finally:
             logger.info("Completed streaming response for conversation: %s", conversation_id)
 

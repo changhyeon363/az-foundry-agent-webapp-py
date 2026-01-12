@@ -58,7 +58,7 @@ async def chat_event_generator(
 
         # Get usage info
         usage = agent_service.get_last_usage()
-        if usage and usage.total_tokens > 0:
+        if usage:
             yield format_sse_event("usage", {
                 "duration": duration_ms,
                 "promptTokens": usage.prompt_tokens,
