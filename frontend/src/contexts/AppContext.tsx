@@ -1,6 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useMemo } from 'react';
 import type { ReactNode, Dispatch } from 'react';
-import { useMsal } from '@azure/msal-react';
 import type { AppState, AppAction } from '../types/appState';
 import { initialAppState } from '../types/appState';
 import { appReducer } from '../reducers/appReducer';
@@ -24,27 +23,27 @@ const devLogger = {
 const logStateChange = (action: AppAction, prevState: AppState, nextState: AppState) => {
   if (!devLogger.enabled) return;
   const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
-  devLogger.group(`🔄 [${timestamp}] ${action.type}`);
+  devLogger.group(`[${timestamp}] ${action.type}`);
   devLogger.log('Action:', action);
   const changes: Record<string, any> = {};
-  
+
   // Track all meaningful state changes
   if (prevState.auth.status !== nextState.auth.status) {
-    changes['auth.status'] = `${prevState.auth.status} → ${nextState.auth.status}`;
+    changes['auth.status'] = `${prevState.auth.status} -> ${nextState.auth.status}`;
   }
   if (prevState.chat.status !== nextState.chat.status) {
-    changes['chat.status'] = `${prevState.chat.status} → ${nextState.chat.status}`;
+    changes['chat.status'] = `${prevState.chat.status} -> ${nextState.chat.status}`;
   }
   if (prevState.chat.messages.length !== nextState.chat.messages.length) {
-    changes['chat.messages.length'] = `${prevState.chat.messages.length} → ${nextState.chat.messages.length}`;
+    changes['chat.messages.length'] = `${prevState.chat.messages.length} -> ${nextState.chat.messages.length}`;
   }
   if (prevState.chat.streamingMessageId !== nextState.chat.streamingMessageId) {
-    changes['chat.streamingMessageId'] = `${prevState.chat.streamingMessageId} → ${nextState.chat.streamingMessageId}`;
+    changes['chat.streamingMessageId'] = `${prevState.chat.streamingMessageId} -> ${nextState.chat.streamingMessageId}`;
   }
   if (prevState.ui.chatInputEnabled !== nextState.ui.chatInputEnabled) {
-    changes['ui.chatInputEnabled'] = `${prevState.ui.chatInputEnabled} → ${nextState.ui.chatInputEnabled}`;
+    changes['ui.chatInputEnabled'] = `${prevState.ui.chatInputEnabled} -> ${nextState.ui.chatInputEnabled}`;
   }
-  
+
   if (Object.keys(changes).length) {
     devLogger.log('Changes:', changes);
   } else {
@@ -64,20 +63,12 @@ const reducerWithLogging = (state: AppState, action: AppAction): AppState => {
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(reducerWithLogging, initialAppState);
-  const { accounts } = useMsal();
-
-  // Initialize auth state from MSAL
-  useEffect(() => {
-    if (accounts.length > 0) {
-      dispatch({ type: 'AUTH_INITIALIZED', user: accounts[0] });
-    }
-  }, [accounts]);
 
   // Dev mode: Log when provider mounts and unmounts
   useEffect(() => {
-    devLogger.log('🚀 AppProvider initialized');
+    devLogger.log('AppProvider initialized');
     return () => {
-      devLogger.log('🔌 AppProvider unmounted');
+      devLogger.log('AppProvider unmounted');
     };
   }, []);
 

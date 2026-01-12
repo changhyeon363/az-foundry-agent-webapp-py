@@ -1,13 +1,12 @@
-import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsalAuthentication } from "@azure/msal-react";
 import { Spinner } from '@fluentui/react-components';
 import { useAppState } from './hooks/useAppState';
-import { InteractionType } from "@azure/msal-browser";
 import { ErrorBoundary } from "./components/core/ErrorBoundary";
 import { AgentPreview } from "./components/AgentPreview";
-import { loginRequest } from "./config/authConfig";
-import { useState, useEffect } from "react";
+import { LoginPage } from "./components/LoginPage";
 import { useAuth } from "./hooks/useAuth";
+import { useState, useEffect } from "react";
 import type { IAgentMetadata } from "./types/chat";
+import { API_URL } from "./config/authConfig";
 import "./App.css";
 
 export interface ChatInterfaceRef {
@@ -16,22 +15,33 @@ export interface ChatInterfaceRef {
 }
 
 function App() {
-  // This hook handles authentication automatically - redirects if not authenticated
-  useMsalAuthentication(InteractionType.Redirect, loginRequest);
-  const { auth } = useAppState();
-  const { getAccessToken } = useAuth();
+  const { auth, dispatch } = useAppState();
+  const { isAuthenticated, isLoading: authLoading, login, logout, getAccessToken, user } = useAuth();
   const [agentMetadata, setAgentMetadata] = useState<IAgentMetadata | null>(null);
-  const [isLoadingAgent, setIsLoadingAgent] = useState(true);
+  const [isLoadingAgent, setIsLoadingAgent] = useState(false);
+  const [loginError, setLoginError] = useState<string | undefined>();
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
 
+  // Sync auth state with app context
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      dispatch({ type: 'AUTH_INITIALIZED', user });
+    } else if (!isAuthenticated && !authLoading) {
+      dispatch({ type: 'AUTH_LOGOUT' });
+    }
+  }, [isAuthenticated, user, authLoading, dispatch]);
+
+  // Fetch agent metadata when authenticated
   useEffect(() => {
     const fetchAgentMetadata = async () => {
-      if (auth.status !== 'authenticated') return;
+      if (!isAuthenticated) return;
 
+      setIsLoadingAgent(true);
       try {
         const token = await getAccessToken();
-        const apiUrl = import.meta.env.VITE_API_URL || '/api';
-        
-        const response = await fetch(`${apiUrl}/agent`, {
+        if (!token) return;
+
+        const response = await fetch(`${API_URL}/agent`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -44,7 +54,7 @@ function App() {
 
         const data = await response.json();
         setAgentMetadata(data);
-        
+
         // Update document title with agent name
         document.title = data.name ? `${data.name} - Azure AI Agent` : 'Azure AI Agent';
       } catch (error) {
@@ -66,49 +76,78 @@ function App() {
     };
 
     fetchAgentMetadata();
-  }, [auth.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, getAccessToken]);
 
+  // Handle login
+  const handleLogin = async (username: string, password: string) => {
+    setIsLoginLoading(true);
+    setLoginError(undefined);
+    try {
+      await login(username, password);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : 'Login failed');
+    } finally {
+      setIsLoginLoading(false);
+    }
+  };
+
+  // Show loading spinner while checking auth
+  if (authLoading) {
+    return (
+      <div className="app-container" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        flexDirection: 'column',
+        gap: '1rem'
+      }}>
+        <Spinner size="large" />
+        <p style={{ margin: 0 }}>Preparing your session...</p>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <ErrorBoundary>
+        <LoginPage
+          onLogin={handleLogin}
+          error={loginError}
+          isLoading={isLoginLoading}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  // Show main app
   return (
     <ErrorBoundary>
-      {auth.status === 'initializing' || isLoadingAgent ? (
-        <div className="app-container" style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '100vh', 
-          flexDirection: 'column', 
-          gap: '1rem' 
+      {isLoadingAgent ? (
+        <div className="app-container" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          flexDirection: 'column',
+          gap: '1rem'
         }}>
           <Spinner size="large" />
-          <p style={{ margin: 0 }}>
-            {auth.status === 'initializing' ? 'Preparing your session...' : 'Loading agent...'}
-          </p>
+          <p style={{ margin: 0 }}>Loading agent...</p>
         </div>
       ) : (
-        <>
-          <AuthenticatedTemplate>
-            {agentMetadata && (
-              <div className="app-container">
-                <AgentPreview 
-                  agentId={agentMetadata.id}
-                  agentName={agentMetadata.name}
-                  agentDescription={agentMetadata.description || undefined}
-                  agentLogo={agentMetadata.metadata?.logo}
-                />
-              </div>
-            )}
-          </AuthenticatedTemplate>
-          <UnauthenticatedTemplate>
-            <div className="app-container" style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              height: '100vh'
-            }}>
-              <p>Signing in...</p>
-            </div>
-          </UnauthenticatedTemplate>
-        </>
+        agentMetadata && (
+          <div className="app-container">
+            <AgentPreview
+              agentId={agentMetadata.id}
+              agentName={agentMetadata.name}
+              agentDescription={agentMetadata.description || undefined}
+              agentLogo={agentMetadata.metadata?.logo}
+              onLogout={logout}
+            />
+          </div>
+        )
       )}
     </ErrorBoundary>
   );

@@ -11,8 +11,6 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
-    "@azure/msal-browser": "^4.27.0",
-    "@azure/msal-react": "^3.0.23",
     "@fluentui-copilot/react-copilot": "0.30.2",
     "@fluentui-copilot/react-copilot-chat": "0.13.1",
     "@fluentui/react-components": "^9.72.8",

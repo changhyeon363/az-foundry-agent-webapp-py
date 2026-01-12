@@ -1,87 +1,117 @@
-import { useMsal } from "@azure/msal-react";
-import { InteractionRequiredAuthError } from "@azure/msal-browser";
-import { tokenRequest } from "../config/authConfig";
-import { useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { authConfig, API_URL } from '../config/authConfig';
+import type { UserInfo } from '../types/appState';
+
+interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+}
 
 /**
- * Authentication hook for MSAL-based authentication.
- * Provides token acquisition and authentication status.
- * 
- * @returns Object with getAccessToken function, authentication status, and user info
- * 
- * @example
- * ```tsx
- * function ProtectedComponent() {
- *   const { getAccessToken, isAuthenticated, user } = useAuth();
- *   
- *   useEffect(() => {
- *     const fetchData = async () => {
- *       const token = await getAccessToken();
- *       if (token) {
- *         // Make authenticated API call
- *       }
- *     };
- *     fetchData();
- *   }, [getAccessToken]);
- *   
- *   if (!isAuthenticated) return <div>Please sign in</div>;
- *   return <div>Welcome, {user?.name}</div>;
- * }
- * ```
+ * Authentication hook for JWT-based authentication.
+ * Provides login, logout, and token management.
  */
 export const useAuth = () => {
-  const { instance, accounts } = useMsal();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
-    if (accounts.length === 0) {
-      return null;
-    }
+  // Check for existing token on mount
+  useEffect(() => {
+    const token = localStorage.getItem(authConfig.tokenKey);
+    const expiry = localStorage.getItem(authConfig.tokenExpiryKey);
+    const savedUser = localStorage.getItem(authConfig.userKey);
 
-    const request = {
-      ...tokenRequest,
-      account: accounts[0],
-    };
-
-    try {
-      // Try silent token acquisition first (uses cached token if valid)
-      const response = await instance.acquireTokenSilent(request);
-      return response.accessToken;
-    } catch (error) {
-      if (error instanceof InteractionRequiredAuthError) {
-        // Fallback to interactive login if silent fails
-        console.warn(
-          "Silent token acquisition failed, prompting for interaction"
-        );
+    if (token && expiry && Date.now() < parseInt(expiry, 10)) {
+      setIsAuthenticated(true);
+      if (savedUser) {
         try {
-          const response = await instance.acquireTokenPopup(request);
-          return response.accessToken;
-        } catch (popupError) {
-          console.error("Popup login failed:", popupError);
-          return null;
+          setUser(JSON.parse(savedUser));
+        } catch {
+          setUser({ name: 'User' });
         }
       }
-      console.error("Token acquisition error:", error);
+    } else {
+      // Clear expired token
+      localStorage.removeItem(authConfig.tokenKey);
+      localStorage.removeItem(authConfig.tokenExpiryKey);
+      localStorage.removeItem(authConfig.userKey);
+    }
+    setIsLoading(false);
+  }, []);
+
+  /**
+   * Login with username and password
+   */
+  const login = useCallback(async (username: string, password: string): Promise<void> => {
+    const response = await fetch(authConfig.loginEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Login failed');
+    }
+
+    const data: LoginResponse = await response.json();
+
+    // Store token and expiry
+    const expiryTime = Date.now() + data.expires_in * 1000;
+    localStorage.setItem(authConfig.tokenKey, data.access_token);
+    localStorage.setItem(authConfig.tokenExpiryKey, expiryTime.toString());
+
+    // Store user info
+    const userInfo: UserInfo = { name: username };
+    localStorage.setItem(authConfig.userKey, JSON.stringify(userInfo));
+
+    setIsAuthenticated(true);
+    setUser(userInfo);
+  }, []);
+
+  /**
+   * Logout and clear stored credentials
+   */
+  const logout = useCallback(() => {
+    localStorage.removeItem(authConfig.tokenKey);
+    localStorage.removeItem(authConfig.tokenExpiryKey);
+    localStorage.removeItem(authConfig.userKey);
+    setIsAuthenticated(false);
+    setUser(null);
+  }, []);
+
+  /**
+   * Get the current access token
+   * Returns null if not authenticated or token expired
+   */
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    const token = localStorage.getItem(authConfig.tokenKey);
+    const expiry = localStorage.getItem(authConfig.tokenExpiryKey);
+
+    if (!token || !expiry) {
       return null;
     }
-  }, [instance, accounts]);
 
-  // Memoize computed values
-  const isAuthenticated = useMemo(
-    () => accounts.length > 0,
-    [accounts.length]
-  );
+    // Check if token expired
+    if (Date.now() >= parseInt(expiry, 10)) {
+      logout();
+      return null;
+    }
 
-  const user = useMemo(
-    () => accounts[0],
-    [accounts]
-  );
+    return token;
+  }, [logout]);
 
   return useMemo(
     () => ({
-      getAccessToken,
       isAuthenticated,
+      isLoading,
       user,
+      login,
+      logout,
+      getAccessToken,
     }),
-    [getAccessToken, isAuthenticated, user]
+    [isAuthenticated, isLoading, user, login, logout, getAccessToken]
   );
 };

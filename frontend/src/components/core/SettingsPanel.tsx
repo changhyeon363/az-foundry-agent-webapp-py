@@ -5,15 +5,17 @@ import {
   DrawerHeaderTitle,
   DrawerBody,
   Button,
+  Divider,
   makeStyles,
   tokens,
 } from '@fluentui/react-components';
-import { Dismiss24Regular } from '@fluentui/react-icons';
+import { Dismiss24Regular, SignOutRegular } from '@fluentui/react-icons';
 import { ThemePicker } from './ThemePicker';
 
 interface SettingsPanelProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  onLogout?: () => void;
 }
 
 const useStyles = makeStyles({
@@ -29,10 +31,22 @@ const useStyles = makeStyles({
     marginBottom: tokens.spacingVerticalM,
     color: tokens.colorNeutralForeground1,
   },
+  logoutSection: {
+    marginTop: 'auto',
+    paddingTop: tokens.spacingVerticalL,
+  },
+  logoutButton: {
+    width: '100%',
+  },
 });
 
-export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onOpenChange }) => {
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onOpenChange, onLogout }) => {
   const styles = useStyles();
+
+  const handleLogout = () => {
+    onOpenChange(false);
+    onLogout?.();
+  };
 
   return (
     <Drawer
@@ -61,6 +75,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onOpenChan
           <div className={styles.sectionTitle}>Appearance</div>
           <ThemePicker />
         </div>
+
+        {onLogout && (
+          <>
+            <Divider />
+            <div className={styles.logoutSection}>
+              <Button
+                className={styles.logoutButton}
+                appearance="secondary"
+                icon={<SignOutRegular />}
+                onClick={handleLogout}
+              >
+                Sign Out
+              </Button>
+            </div>
+          </>
+        )}
       </DrawerBody>
     </Drawer>
   );

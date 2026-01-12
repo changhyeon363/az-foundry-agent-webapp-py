@@ -295,6 +295,7 @@ export class ChatService {
     let newConversationId = currentConversationId;
     let lastChunkContent: string | undefined;
     let buffer = '';
+    let streamCompleted = false;
 
     try {
       while (true) {
@@ -349,6 +350,7 @@ export class ChatService {
               break;
 
             case 'usage':
+              streamCompleted = true;
               this.dispatch({
                 type: 'CHAT_STREAM_COMPLETE',
                 usage: {
@@ -361,6 +363,17 @@ export class ChatService {
               break;
 
             case 'done':
+              streamCompleted = true;
+              // Ensure stream complete is dispatched even without usage data
+              this.dispatch({
+                type: 'CHAT_STREAM_COMPLETE',
+                usage: {
+                  promptTokens: 0,
+                  completionTokens: 0,
+                  totalTokens: 0,
+                  duration: 0,
+                },
+              });
               return;
 
             case 'error':
@@ -400,6 +413,20 @@ export class ChatService {
         reader.releaseLock();
       } catch {
         // Reader may already be released
+      }
+      
+      // Ensure stream completion even if server doesn't send done/usage events
+      if (!streamCompleted && !this.streamCancelled) {
+        console.warn('[ChatService] Stream ended without completion event, forcing completion');
+        this.dispatch({
+          type: 'CHAT_STREAM_COMPLETE',
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            duration: 0,
+          },
+        });
       }
     }
   }

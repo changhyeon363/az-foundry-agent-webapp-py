@@ -1,0 +1,20 @@
+# Web Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt<4
+
+# Azure AI Foundry SDK
+azure-ai-projects>=2.0.0b3
+azure-identity>=1.25.1
+
+# Configuration
+python-dotenv>=1.0.1
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+
+# SSE Support
+sse-starlette>=2.2.0

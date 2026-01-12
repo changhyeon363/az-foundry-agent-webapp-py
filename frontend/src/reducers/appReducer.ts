@@ -36,6 +36,26 @@ export const appReducer = (state: AppState, action: AppAction): AppState => {
         },
       };
 
+    case 'AUTH_LOGOUT':
+      return {
+        ...state,
+        auth: {
+          status: 'unauthenticated',
+          user: null,
+          error: null,
+        },
+        chat: {
+          status: 'idle',
+          messages: [],
+          currentConversationId: null,
+          error: null,
+          streamingMessageId: undefined,
+        },
+        ui: {
+          chatInputEnabled: true,
+        },
+      };
+
     // === Chat Message Actions ===
     case 'CHAT_SEND_MESSAGE':
       return {

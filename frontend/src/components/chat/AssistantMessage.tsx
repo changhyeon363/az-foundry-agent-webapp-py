@@ -38,7 +38,7 @@ function AssistantMessageComponent({
       footnote={
         <>
           {timestamp && <span className={styles.timestamp}>{timestamp}</span>}
-          {message.more?.usage && (
+          {message.more?.usage && message.more.usage.totalTokens > 0 && (
             <UsageInfo 
               info={message.more.usage} 
               duration={message.duration} 

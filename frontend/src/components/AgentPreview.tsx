@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChatInterface } from './ChatInterface';
 import { SettingsPanel } from './core/SettingsPanel';
-import { BuiltWithBadge } from './core/BuiltWithBadge';
 import { useAppState } from '../hooks/useAppState';
 import { useAuth } from '../hooks/useAuth';
 import { ChatService } from '../services/chatService';
@@ -13,9 +12,10 @@ interface AgentPreviewProps {
   agentName: string;
   agentDescription?: string;
   agentLogo?: string;
+  onLogout?: () => void;
 }
 
-export const AgentPreview: React.FC<AgentPreviewProps> = ({ agentName, agentDescription, agentLogo }) => {
+export const AgentPreview: React.FC<AgentPreviewProps> = ({ agentName, agentDescription, agentLogo, onLogout }) => {
   const { chat } = useAppState();
   const { dispatch } = useAppContext();
   const { getAccessToken } = useAuth();
@@ -63,13 +63,12 @@ export const AgentPreview: React.FC<AgentPreviewProps> = ({ agentName, agentDesc
           agentDescription={agentDescription}
           agentLogo={agentLogo}
         />
-        
-        <BuiltWithBadge className={styles.builtWithBadge} />
       </div>
       
       <SettingsPanel
         isOpen={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
+        onLogout={onLogout}
       />
     </div>
   );

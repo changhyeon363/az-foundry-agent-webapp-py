@@ -1,9 +1,15 @@
-import type { AccountInfo } from '@azure/msal-browser';
 import type { IChatItem, IUsageInfo } from './chat';
 import type { AppError } from './errors';
 
 // Re-export types for convenience
 export type { IChatItem, IUsageInfo };
+
+/**
+ * User info from JWT authentication
+ */
+export interface UserInfo {
+  name: string;
+}
 
 /**
  * Central application state structure
@@ -13,10 +19,10 @@ export interface AppState {
   // Authentication state
   auth: {
     status: 'initializing' | 'authenticated' | 'unauthenticated' | 'error';
-    user: AccountInfo | null;
+    user: UserInfo | null;
     error: string | null;
   };
-  
+
   // Chat operations state
   chat: {
     status: 'idle' | 'sending' | 'streaming' | 'error';
@@ -25,7 +31,7 @@ export interface AppState {
     error: AppError | null; // Enhanced error object
     streamingMessageId?: string; // Which message is actively streaming
   };
-  
+
   // UI coordination state
   ui: {
     chatInputEnabled: boolean; // Disable during streaming/errors
@@ -36,11 +42,12 @@ export interface AppState {
  * All possible actions that can modify application state
  * Use discriminated unions for type safety
  */
-export type AppAction = 
+export type AppAction =
   // Auth actions
-  | { type: 'AUTH_INITIALIZED'; user: AccountInfo }
+  | { type: 'AUTH_INITIALIZED'; user: UserInfo }
+  | { type: 'AUTH_LOGOUT' }
   | { type: 'AUTH_TOKEN_EXPIRED' }
-  
+
   // Chat actions
   | { type: 'CHAT_SEND_MESSAGE'; message: IChatItem }
   | { type: 'CHAT_START_STREAM'; conversationId?: string; messageId: string }
